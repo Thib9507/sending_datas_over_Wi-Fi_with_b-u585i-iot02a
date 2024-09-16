@@ -56,20 +56,20 @@ typedef struct _spi_header
 
 #ifndef MX_WIFI_RESET_PIN
 
-#define MX_WIFI_RESET_PIN        MXCHIP_RESET_Pin
-#define MX_WIFI_RESET_PORT       MXCHIP_RESET_GPIO_Port
+#define MX_WIFI_RESET_PIN        WRLS_WKUP_W_Pin
+#define MX_WIFI_RESET_PORT       WRLS_WKUP_W_GPIO_Port
 
 /* wifi spi cs */
-#define MX_WIFI_SPI_CS_PIN       MXCHIP_NSS_Pin
-#define MX_WIFI_SPI_CS_PORT      MXCHIP_NSS_GPIO_Port
+#define MX_WIFI_SPI_CS_PIN       WRLS_SPI2_NSS_Pin
+#define MX_WIFI_SPI_CS_PORT      WRLS_SPI2_NSS_GPIO_Port
 
 /* wifi spi slave notify */
-#define MX_WIFI_SPI_IRQ_PIN      MXCHIP_NOTIFY_Pin
-#define MX_WIFI_SPI_IRQ_PORT     MXCHIP_NOTIFY_GPIO_Port
-#define MX_WIFI_SPI_IRQ          MXCHIP_NOTIFY_EXTI_IRQn
+#define MX_WIFI_SPI_IRQ_PIN      WRLS_NOTIFY_Pin
+#define MX_WIFI_SPI_IRQ_PORT     WRLS_NOTIFY_GPIO_Port
+#define MX_WIFI_SPI_IRQ          EXTI14_IRQn
 
-#define MX_WIFI_SPI_FLOW_PIN     MXCHIP_FLOW_Pin
-#define MX_WIFI_SPI_FLOW_PORT    MXCHIP_FLOW_GPIO_Port
+#define MX_WIFI_SPI_FLOW_PIN     WRLS_FLOW_Pin
+#define MX_WIFI_SPI_FLOW_PORT    WRLS_FLOW_GPIO_Port
 
 #endif /* MX_WIFI_RESET_PIN */
 
