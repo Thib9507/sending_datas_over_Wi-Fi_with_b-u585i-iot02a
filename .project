@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>stm32u585_sdm_over_wifi</name>
+	<name>B-U585-IOT02A_sdm_over_wifi</name>
 	<comment></comment>
 	<projects>
 	</projects>
@@ -31,8 +31,4 @@
 		<nature>org.eclipse.cdt.managedbuilder.core.managedBuildNature</nature>
 		<nature>org.eclipse.cdt.managedbuilder.core.ScannerConfigNature</nature>
 	</natures>
-	<linkedResources>
-	</linkedResources>
-	<variableList>
-	</variableList>
 </projectDescription>
