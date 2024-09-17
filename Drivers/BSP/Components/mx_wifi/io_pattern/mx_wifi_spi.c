@@ -29,6 +29,7 @@
 #include "mx_wifi_conf.h" /* Get some platform definitions. */
 #include "mx_wifi_io.h"
 #include "core/mx_wifi_hci.h"
+#include "app.h"
 
 #if defined(MX_WIFI_USE_SPI) && (MX_WIFI_USE_SPI == 1)
 
