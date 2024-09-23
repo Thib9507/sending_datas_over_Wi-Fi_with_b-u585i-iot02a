@@ -164,7 +164,7 @@ static int32_t hw_start(/*net_if_handle_t *pnetif */probe *probe_object)
     {
        // WiFi module hardware reboot.
       DEBUG_LOG("%s\n", "MX_WIFI REBOOT(HW) ...");
-      ret = MX_WIFI_HardResetModule(wifi_obj_get());         // Not an error, it is mandatory
+      ret = MX_WIFI_HardResetModule(wifi_obj_get());         // Not an error, it is mandatory for the init
     }
     else
     {
@@ -224,6 +224,14 @@ static int32_t hw_start(/*net_if_handle_t *pnetif */probe *probe_object)
 
 
 
+
+
+// network info
+const mx_char_t *SSID = "iPhone_de_Thibault";
+const mx_char_t *Password = "88888888";
+
+
+
 void app_main( void) {
     /* Initialize bsp resources */
     bsp_init();
@@ -231,48 +239,47 @@ void app_main( void) {
     MX_WIFI_STATUS_T a;
 
 
-//a   = MX_WIFI_Connect(MX_WIFIObject_t *Obj, const mx_char_t *SSID, const mx_char_t *Password, MX_WIFI_SecurityType_t SecType);
-
-    const mx_char_t *SSID = "iPhone_de_Thibault";
-    const mx_char_t *Password = "88888888";
-
-    uint8_t *mac =1;
-
-    // initialisation of the wifi module secondaries pins (not the spi pins)
+    // configuration and initialisation of the wifi module
     {
-    	Wifi_IO_Init();
+    	Wifi_IO_Init(); // initialisation of the wifi module secondaries pins (not the spi pins)
     }
 
     // initialisation of the module request
     {
 		int32_t ret_hw_start;
 
-		probe probe_object; // // ~ pnetif for hw_start
+		probe probe_object; // ~ pnetif to feed hw_start
 
-		ret_hw_start= hw_start(&probe_object);
+		ret_hw_start = hw_start(&probe_object); // initialisation of the spi and the module
     }
 
 
-    MX_WIFI_STATUS_T MX_WIFI_GetVersion(MX_WIFIObject_t *Obj, uint8_t *version, uint32_t size);
 
 
 
-    //PendingRequest.req_id = MIPC_REQ_ID_RESET_VAL;
-    // a= MX_WIFI_Init(wifi_obj_get());
+/////////////////////////////////////////////////////////////////////////////////////////////
+//////  list of commands send to the module (a is the status of the module : 0 is OK  ///////
+/////////////////////////////////////////////////////////////////////////////////////////////
 
-    //int32_t mx_wifi_hci_init(hci_send_func_t low_level_send)
-
-    a = MX_WIFI_GetsoftapMACAddress(wifi_obj_get(), mac);
+    a = MX_WIFI_Scan(wifi_obj_get(), 0, NULL,0);
 
     a = MX_WIFI_Connect(wifi_obj_get(), SSID, Password, MX_WIFI_SEC_WPA_AES);
 
-    if (a==MX_WIFI_STATUS_OK)    {
-        HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_7);
-    }
-    else {
-    HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);
-    }
 
+
+
+
+
+
+// code to turn on a led depending on the status of the module (Green for OK, Red for KO)
+{
+	if (a==MX_WIFI_STATUS_OK)    {
+		HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_7);
+	}
+	else {
+		HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);
+	}
+}
 
 
 
