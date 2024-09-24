@@ -261,13 +261,13 @@ void app_main( void) {
 //////  list of commands send to the module (a is the status of the module : 0 is OK  ///////
 /////////////////////////////////////////////////////////////////////////////////////////////
 
-    // a = MX_WIFI_Scan(wifi_obj_get(), 0, NULL,0);
+    a = MX_WIFI_Scan(wifi_obj_get(), 0, NULL,0); // scan is mandatory before connecting request to connect correctly
 
     a = MX_WIFI_Connect(wifi_obj_get(), SSID, Password, MX_WIFI_SEC_WPA_AES);
 
     HAL_Delay(3000); // waiting for 3s
 
-    a = MX_WIFI_IsConnected(wifi_obj_get()); // get wifi connection
+    a = MX_WIFI_IsConnected(wifi_obj_get()); // get wifi connection informations
 
 
 
