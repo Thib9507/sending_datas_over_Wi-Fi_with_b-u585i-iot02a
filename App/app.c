@@ -1,7 +1,10 @@
 #include "bsp.h"
 #include "mx_wifi.h"
 #include "mx_wifi_io.h"
-#include "mx_wifi_bare_os.h"
+#include "mx_address.h"
+
+#include <stdio.h>
+#include <string.h>
 
 // define the wifi module secondaries pins (not the spi pins)
 
@@ -18,17 +21,15 @@
 #define MXCHIP_NOTIFY_EXTI_IRQn EXTI14_IRQn
 
 
+#define NET_IPPROTO_TCP         6
+
+
 
 #ifdef MX_WIFI_API_DEBUG
 #define DEBUG_LOG(M, ...)  printf((M), ##__VA_ARGS__) /*;*/
 #else
 #define DEBUG_LOG(M, ...)  /*;*/
 #endif /* MX_WIFI_API_DEBUG */
-
-/*void SPI2_IRQHandler(void)
-{
-  HAL_SPI_IRQHandler(&Wifi_SPIHandle);
-}*/
 
 /**
   * @brief This function handles EXTI Line13 interrupt. (Notify_pin of spi) need it to change the state and to speak to/ listen from the module
@@ -141,7 +142,8 @@ void HAL_GPIO_EXTI_Rising_Callback(uint16_t GPIO_Pin)
 
 
 
-
+typedef char            char_t;
+/* IPV4 address, with 8 stuffing bytes. */
 
 
 //empty structure to feed mxwifi_probe function in hw_start
@@ -151,7 +153,7 @@ typedef struct
 }probe;
 
 
-// function hw_start from the IOT project but adapted (consider the structure above
+// function hw_start adapted from the initial project (consider the structure above)
 static int32_t hw_start(/*net_if_handle_t *pnetif */probe *probe_object)
 {
   int32_t ret = /*NET_ERROR_DEVICE_ERROR*/-13;
@@ -220,12 +222,6 @@ static int32_t hw_start(/*net_if_handle_t *pnetif */probe *probe_object)
 
 
 
-
-
-
-
-
-
 // network info
 const mx_char_t *SSID = "iPhone_de_Thibault";
 const mx_char_t *Password = "88888888";
@@ -263,16 +259,104 @@ void app_main( void) {
 
     a = MX_WIFI_Scan(wifi_obj_get(), 0, NULL,0); // scan is mandatory before connecting request to connect correctly
 
+    (wifi_obj_get())->NetSettings.DHCP_IsEnabled=1;
+
     a = MX_WIFI_Connect(wifi_obj_get(), SSID, Password, MX_WIFI_SEC_WPA_AES);
 
-    HAL_Delay(3000); // waiting for 3s
+    uint8_t z[4];
 
-    a = MX_WIFI_IsConnected(wifi_obj_get()); // get wifi connection informations
+    HAL_Delay(10000); // waiting for 3s to get connect
+
+    a = MX_WIFI_GetIPAddress(wifi_obj_get(),&z[0],MC_STATION);
+
+    a = MX_WIFI_IsConnected(wifi_obj_get()); // get wifi connection informations to verify if we are connected
+
+    // **********************add callback*******************************************************
+
+    // create a socket
+    int32_t sock_fd = MX_WIFI_Socket_create(wifi_obj_get(), MX_AF_INET, MX_SOCK_STREAM, NET_IPPROTO_TCP); // in the example, the function create_low_level_socket sets these arguments
+
+	if (sock_fd >= 0) { // sock_fd is a unique id for the socket
+
+		// enter server informations to connect the socket
+		 struct mx_sockaddr *server_addr = (struct mx_sockaddr*) malloc(sizeof(struct mx_sockaddr));
+		server_addr->sa_family = MX_AF_INET;
+		server_addr->sa_len=16; // Number of bytes of the structure
+			server_addr->sa_data[0] = 0x01; // 0x01;         // port 443 for HTTPS (on 2 Bytes) : 0 , 80 for HTTP
+			server_addr->sa_data[1] = 0xBB; // 0xBB;
+			server_addr->sa_data[2] = 37;
+			server_addr->sa_data[3] = 58;           // IP of our server
+			server_addr->sa_data[4] = 177;
+			server_addr->sa_data[5] = 187;
+			server_addr->sa_data[6] = 0;
+			server_addr->sa_data[7] = 0;
+			server_addr->sa_data[8] = 0;
+			server_addr->sa_data[9] = 0;          // following element = 0
+			server_addr->sa_data[10] = 0;
+			server_addr->sa_data[11] = 0;
+			server_addr->sa_data[12] = 0;
+			server_addr->sa_data[13] = 0;
+
+
+
+
+		// Server connection
+		a = MX_WIFI_Socket_connect(wifi_obj_get(), sock_fd, (const struct mx_sockaddr *)server_addr, (int32_t)sizeof(struct mx_sockaddr_in));
+
+
+
+
+
+
+
+
+		if (a == MX_WIFI_STATUS_OK) {
+
+        	const char* post_request =
+        			  "POST /public/v1/devices/alive HTTP/1.1\r\n"
+        			  "Host: 37.58.177.187\r\n"
+        			  "Accept: application/json\r\n"
+        			  "Content-Type: application/json; charset=utf-8\r\n"
+        			//"Authorization: Basic " 										***************	need to complete it (securities issues)
+        			  "Content-Length: 176\r\n"
+        			  "\r\n"
+        			  "{\n"
+        			  "    \"serialNumber\":\"99051190\",\n"
+        			  "    \"applicationId\":\"2.16.756.5.25.4.6.2.1\",\n"
+        			  "    \"deviceId\":\"TEST_PVL_TCI\",\n"
+        			  "    \"versionId\":\"51104\",\n"
+        			  "    \"hardwareId\":\"0\",\n"
+        			  "    \"settingSet\":\"Batman\"\n"
+        			  "}";
+
+
+
+            // Envoyer la requête POST
+            int32_t a = MX_WIFI_Socket_send(wifi_obj_get(), sock_fd, (const uint8_t *)post_request, strlen(post_request), 0);
+            if (a > 0) {
+                // Réception de la réponse (ajoute le code pour lire la réponse ici si nécessaire)
+        		HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_7);
+
+            } else {
+            	HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);
+            }
+        }
+        else {
+        	HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);
+        }
+        // Fermer le socket après l'utilisation
+        MX_WIFI_Socket_close(wifi_obj_get(), sock_fd); // Ajoute la fonction pour fermer le socket
+    }
+    else {
+    	HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6); // Gestion d'erreur de création de socket
+    }
+
 
 
 
 
 // code to turn on a led depending on the status of the module (Green for OK, Red for KO)
+    /*
 {
 	if (a==MX_WIFI_STATUS_OK)    {
 		HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_7);
@@ -281,7 +365,7 @@ void app_main( void) {
 		HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);
 	}
 }
-
+*/
 
 
 
