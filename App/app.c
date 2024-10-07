@@ -24,7 +24,6 @@
 #define NET_IPPROTO_TCP         6
 
 
-
 #ifdef MX_WIFI_API_DEBUG
 #define DEBUG_LOG(M, ...)  printf((M), ##__VA_ARGS__) /*;*/
 #else
@@ -139,9 +138,6 @@ void HAL_GPIO_EXTI_Rising_Callback(uint16_t GPIO_Pin)
   }
 }
 
-
-
-
 typedef char            char_t;
 /* IPV4 address, with 8 stuffing bytes. */
 
@@ -151,6 +147,26 @@ typedef struct
 {
 	void *probe_attribute;
 }probe;
+
+
+typedef enum {
+    AUTOTEST = 0,
+	KEEPALIVE = 1,
+	NOTHING = 2
+} Mode;
+
+
+typedef enum {
+    APP_OK = 0,
+	HW_START_FAILED = -1,
+	WIFI_CONNECTION_FAILED = -2,
+	IP_REQUEST_FAILED = -3,
+	SOCKET_CREATION_FAILED = -4,
+	SOCKET_CONNECTION_FAILED = -5,
+	POST_REQUEST_SENDING_FAILED =-6,
+	POST_REQUEST_RECEIVING_FAILED=-7,
+	SOCKET_CLOSING_FAILED=-8
+} Error;
 
 
 // function hw_start adapted from the initial project (consider the structure above)
@@ -206,134 +222,228 @@ static int32_t hw_start(/*net_if_handle_t *pnetif */probe *probe_object)
           ret = NET_ERROR_MODULE_INITIALIZATION;
         }
         else
-#endif /* (MX_WIFI_NETWORK_BYPASS_MODE == 1) */
+#endif  (MX_WIFI_NETWORK_BYPASS_MODE == 1) */
         {
           ret = /*NET_OK*/0;
         }
       }
     }
   }
-
     return ret;
 }
 
 
-
-
-
+// Setting of the application
 
 // network info
-const mx_char_t *SSID = "iPhone_de_Thibault";
-const mx_char_t *Password = "88888888";
+const mx_char_t *SSID = "xxxx"; // info replace by xxxx because of security issues
+const mx_char_t *Password = "xxxx"; // info replace by xxxx because of security issues
+
+Mode currentMode = KEEPALIVE; // Choose if you want to send a keepalive, an autotest or nothing
+
+Mode currentMode = KEEPALIVE; // Choose if you want to send a keepalive, an autotest or nothing
 
 
-
-void app_main( void) {
+int8_t app_main( void) {
     /* Initialize bsp resources */
     bsp_init();
 
-    MX_WIFI_STATUS_T a;
+    MX_WIFI_STATUS_T a;  // declare a variable to stock the state of the module
 
 
-    // configuration and initialisation of the wifi module
+    // configuration and initialization of the wifi module
     {
-    	Wifi_IO_Init(); // initialisation of the wifi module secondaries pins (not the spi pins)
+    	Wifi_IO_Init(); // initialization of the wifi module secondaries pins (not the spi pins)
     }
 
-    // initialisation of the module request
+    // initialization of the module request
     {
-		int32_t ret_hw_start;
-
 		probe probe_object; // ~ pnetif to feed hw_start
 
-		ret_hw_start = hw_start(&probe_object); // initialisation of the spi and the module
+		int32_t ret_hw_start = hw_start(&probe_object); // initialization of the SPI and the module
+
+			if (ret_hw_start < 0){
+				HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
+				return POST_REQUEST_RECEIVING_FAILED;
+			}
     }
-
-
-
-
-
 /////////////////////////////////////////////////////////////////////////////////////////////
 //////  list of commands send to the module (a is the status of the module : 0 is OK  ///////
 /////////////////////////////////////////////////////////////////////////////////////////////
 
     a = MX_WIFI_Scan(wifi_obj_get(), 0, NULL,0); // scan is mandatory before connecting request to connect correctly
 
-    (wifi_obj_get())->NetSettings.DHCP_IsEnabled=1;
+    (wifi_obj_get())->NetSettings.DHCP_IsEnabled=1; // switch on the DHCP to get an IP address
 
     a = MX_WIFI_Connect(wifi_obj_get(), SSID, Password, MX_WIFI_SEC_WPA_AES);
 
-    uint8_t z[4];
+    HAL_Delay(4000); // waiting for 4s to get connected
 
-    HAL_Delay(10000); // waiting for 3s to get connect
+		if (a != MX_WIFI_STATUS_OK){
+			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
+			return WIFI_CONNECTION_FAILED ;
+		}
 
-    a = MX_WIFI_GetIPAddress(wifi_obj_get(),&z[0],MC_STATION);
+    uint8_t module_IP[4]; // declare a vector to stock the IP address of the module
 
-    a = MX_WIFI_IsConnected(wifi_obj_get()); // get wifi connection informations to verify if we are connected
+    a = MX_WIFI_GetIPAddress(wifi_obj_get(),&module_IP[0],MC_STATION);
 
-    // **********************add callback*******************************************************
+		if (a != MX_WIFI_STATUS_OK){
+			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
+			return IP_REQUEST_FAILED;
+		}
 
-    // create a socket
-    int32_t sock_fd = MX_WIFI_Socket_create(wifi_obj_get(), MX_AF_INET, MX_SOCK_STREAM, NET_IPPROTO_TCP); // in the example, the function create_low_level_socket sets these arguments
+    int32_t sock_fd = MX_WIFI_Socket_create(wifi_obj_get(), MX_AF_INET, MX_SOCK_STREAM, NET_IPPROTO_TCP); // create a socket with some parameters to use TCP protocol
 
-	if (sock_fd >= 0) { // sock_fd is a unique id for the socket
+		if (sock_fd < 0){
+			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
+			return SOCKET_CREATION_FAILED ;
+		}
 
-		// enter server informations to connect the socket
-		 struct mx_sockaddr *server_addr = (struct mx_sockaddr*) malloc(sizeof(struct mx_sockaddr));
-		server_addr->sa_family = MX_AF_INET;
-		server_addr->sa_len=16; // Number of bytes of the structure
-			server_addr->sa_data[0] = 0x01; // 0x01;         // port 443 for HTTPS (on 2 Bytes) : 0 , 80 for HTTP
-			server_addr->sa_data[1] = 0xBB; // 0xBB;
-			server_addr->sa_data[2] = 37;
-			server_addr->sa_data[3] = 58;           // IP of our server
-			server_addr->sa_data[4] = 177;
-			server_addr->sa_data[5] = 187;
-			server_addr->sa_data[6] = 0;
-			server_addr->sa_data[7] = 0;
-			server_addr->sa_data[8] = 0;
-			server_addr->sa_data[9] = 0;          // following element = 0
-			server_addr->sa_data[10] = 0;
-			server_addr->sa_data[11] = 0;
-			server_addr->sa_data[12] = 0;
-			server_addr->sa_data[13] = 0;
+	struct mx_sockaddr *server_addr = (struct mx_sockaddr*) malloc(sizeof(struct mx_sockaddr));
+	server_addr->sa_family = MX_AF_INET;
+	server_addr->sa_len=16; // Number of bytes of the structure
+		server_addr->sa_data[0] = 0x1F;          // port of our application : 8080 (in hexadecimal on 2 Bytes)
+		server_addr->sa_data[1] = 0x90;
+		server_addr->sa_data[2] = 192;
+		server_addr->sa_data[3] = 168;           // IP of our server
+		server_addr->sa_data[4] = 20;
+		server_addr->sa_data[5] = 71;
+		server_addr->sa_data[6] = 0;
+		server_addr->sa_data[7] = 0;
+		server_addr->sa_data[8] = 0;
+		server_addr->sa_data[9] = 0;          // following element = 0
+		server_addr->sa_data[10] = 0;
+		server_addr->sa_data[11] = 0;
+		server_addr->sa_data[12] = 0;
+		server_addr->sa_data[13] = 0;
 
+	// Connection to the Server
+	a = MX_WIFI_Socket_connect(wifi_obj_get(), sock_fd, (const struct mx_sockaddr *)server_addr, (int32_t)sizeof(struct mx_sockaddr_in));
 
+		if (a != MX_WIFI_STATUS_OK){
+			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
+			return SOCKET_CONNECTION_FAILED;
+		}
 
+	if (currentMode == KEEPALIVE) {
+		// Post request for KEEPALIVE
+		const char* post_request =
+				"POST /SDM/public/v1/devices/alive HTTP/1.1\r\n"
+				"Host: 192.168.20.71:8080\r\n"
+				"Accept: application/json\r\n"
+				"Content-Type: application/json; charset=utf-8\r\n"
+				"Authorization: Basic xxxx\r\n" // info replace by xxxx because of security issues
+				"Content-Length: 267\r\n"
+				"\r\n"
+				"{"
+				"\"serialNumber\":\"99051190\","
+				"\"applicationId\":\"2.16.756.5.25.4.6.2.1\","
+				"\"deviceId\":\"TEST_PVL_TCI\","
+				"\"versionId\":\"51104\","
+				"\"hardwareId\":\"0\","
+				"\"settingSet\":\"Batman\""
+				"}";
 
-		// Server connection
-		a = MX_WIFI_Socket_connect(wifi_obj_get(), sock_fd, (const struct mx_sockaddr *)server_addr, (int32_t)sizeof(struct mx_sockaddr_in));
+		a = MX_WIFI_Socket_send(wifi_obj_get(), sock_fd, (const uint8_t *)post_request, strlen(post_request), 0); // function to send the post request
 
+		/*if (a != MX_WIFI_STATUS_OK){
+			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
+			return POST_REQUEST_SENDING_FAILED;
+		}*/
 
+		// prepare the stuff for the receive function
+		static unsigned char recv_buffer[100]; // create a buffer to stock the response
+		memset((void*)recv_buffer, 0, sizeof(recv_buffer)); // Clear the buffer
 
+		int32_t nb = MX_WIFI_Socket_recv(wifi_obj_get(), sock_fd, (uint8_t *)recv_buffer, 100, 0); // function to receive the response from the server
 
-
-
-
-
-		if (a == MX_WIFI_STATUS_OK) {
+#if HTTPFOREVER
+        	const char* post_request =
+        	"POST /SDM/public/v1/devices/alive HTTP/1.1\r\n"
+        	"Host: 37.58.177.187\r\n"
+        	"Accept: application/json\r\n"
+        	"Content-Type: application/json; charset=utf-8\r\n"
+        	"Content-Length: 267\r\n" // of the json
+        	"{\n"
+        	"		\"serialNumber\":\"99051190\",\n"
+        	"		\"applicationId\":\"2.16.756.5.25.4.6.2.1\",\n"
+        	"		\"deviceId\":\"TEST_PVL_TCI\",\n"
+        	"		\"versionId\":\"51104\",\n"
+        	"   	\"hardwareId\":\"0\",\n"
+			"    	\"settingSet\":\"Batman\"\n"
+			"}";
+#else
 
         	const char* post_request =
-        			  "POST /public/v1/devices/alive HTTP/1.1\r\n"
-        			  "Host: 37.58.177.187\r\n"
-        			  "Accept: application/json\r\n"
-        			  "Content-Type: application/json; charset=utf-8\r\n"
-        			//"Authorization: Basic " 										***************	need to complete it (securities issues)
-        			  "Content-Length: 176\r\n"
-        			  "\r\n"
-        			  "{\n"
-        			  "    \"serialNumber\":\"99051190\",\n"
-        			  "    \"applicationId\":\"2.16.756.5.25.4.6.2.1\",\n"
-        			  "    \"deviceId\":\"TEST_PVL_TCI\",\n"
-        			  "    \"versionId\":\"51104\",\n"
-        			  "    \"hardwareId\":\"0\",\n"
-        			  "    \"settingSet\":\"Batman\"\n"
-        			  "}";
-
-
+        		    "POST /SDM/public/v1/devices/alive HTTP/1.1\r\n"
+        		    "Host: 192.168.20.71:8080\r\n"
+        		    "Accept: application/json\r\n"
+        		    "Content-Type: application/json; charset=utf-8\r\n"
+        		    "Authorization: Basic xxxx\r\n"
+        		    "Content-Length: 267\r\n"
+        		    "\r\n"
+        		    "{"
+        		    "\"serialNumber\":\"99051190\","
+        		    "\"applicationId\":\"2.16.756.5.25.4.6.2.1\","
+        		    "\"deviceId\":\"TEST_PVL_TCI\","
+        		    "\"versionId\":\"51104\","
+        		    "\"hardwareId\":\"0\","
+        		    "\"settingSet\":\"Batman\""
+        		    "}";
+#endif
 
             // Envoyer la requête POST
-            int32_t a = MX_WIFI_Socket_send(wifi_obj_get(), sock_fd, (const uint8_t *)post_request, strlen(post_request), 0);
-            if (a > 0) {
+            a = MX_WIFI_Socket_send(wifi_obj_get(), sock_fd, (const uint8_t *)post_request, strlen(post_request), 0);
+
+            int32_t nb=0;
+
+            static unsigned char recv_buffer1[100];
+            static unsigned char recv_buffer2[100];
+
+            /* Clear receive buffer */
+            memset((void*)recv_buffer1, 0, sizeof(recv_buffer1)); // create a buffer to stock the response
+            memset((void*)recv_buffer2, 0, sizeof(recv_buffer2));
+
+	            nb = MX_WIFI_Socket_recv(wifi_obj_get(), sock_fd, (uint8_t *)recv_buffer, 100, 0); // function to receive the response from the server
+
+			}
+
+			else if (currentMode == AUTOTEST) {
+			    // Post request for AUTOTEST
+	        	const char* post_request =
+	        		    "POST /SDM/public/v1/devices/test HTTP/1.1\r\n"
+	        		    "Host: 192.168.20.71:8080\r\n"
+	        		    "Accept: application/json\r\n"
+	        		    "Content-Type: application/json; charset=utf-8\r\n"
+	        		    "Authorization: Basic Mi4xNi43NTYuNS4yNS40LjYuMi4xIzEyNzk5MDUxMTkwOjI5NzExNjM3YWQxY2QwZWE2NDk5MTJhZDBhNDA3OTc5\r\n"
+	        		    "Content-Length: 280\r\n"
+	        		    "\r\n"
+	        		    "{"
+	        		    "\"serialNumber\":\"99051190\","
+	        		    "\"applicationId\":\"2.16.756.5.25.4.6.2.1\","
+	        		    "\"level\":\"INFO\","
+	        		    //"\"created\":\"2022-09-10T12:34:56.789+01:00\","
+	        		    "\"content\":\"<!DOCTYPE html><html>TEST 3 AUTOTEST PVL</html>\""
+	        		    "}";
+
+	            a = MX_WIFI_Socket_send(wifi_obj_get(), sock_fd, (const uint8_t *)post_request, strlen(post_request), 0); // function to send the post request
+
+	            // prepare the stuff for the receive function
+	            int32_t nb = 0; // create a variable to stock the returned value corresponding to the number of Bytes received
+	            static unsigned char recv_buffer[100]; // create a buffer to stock the response
+	            memset((void*)recv_buffer, 0, sizeof(recv_buffer)); // Clear the buffer
+
+	            nb = MX_WIFI_Socket_recv(wifi_obj_get(), sock_fd, (uint8_t *)recv_buffer, 100, 0); // function to receive the response from the server
+			}
+
+
+// fail the 2 nd send request, maybe the socket is broke because of the previous fail request
+
+
+           a = MX_WIFI_Socket_close(wifi_obj_get(), sock_fd); // Ajoute la fonction pour fermer le socket
+
+            if (a == 0) {
                 // Réception de la réponse (ajoute le code pour lire la réponse ici si nécessaire)
         		HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_7);
 
@@ -345,7 +455,6 @@ void app_main( void) {
         	HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);
         }
         // Fermer le socket après l'utilisation
-        MX_WIFI_Socket_close(wifi_obj_get(), sock_fd); // Ajoute la fonction pour fermer le socket
     }
     else {
     	HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6); // Gestion d'erreur de création de socket
@@ -360,18 +469,62 @@ void app_main( void) {
 {
 	if (a==MX_WIFI_STATUS_OK)    {
 		HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_7);
+=======
+		if (nb < 0){
+			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
+			return POST_REQUEST_RECEIVING_FAILED;
+		}
+>>>>>>> 746bbd0 ([App][core] Adding error management)
 	}
-	else {
-		HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);
+
+	else if (currentMode == AUTOTEST) {
+		// Post request for AUTOTEST
+		const char* post_request =
+				"POST /SDM/public/v1/devices/test HTTP/1.1\r\n"
+				"Host: 192.168.20.71:8080\r\n"
+				"Accept: application/json\r\n"
+				"Content-Type: application/json; charset=utf-8\r\n"
+				"Authorization: Basic xxxx\r\n" // info replace by xxxx because of security issues
+				"Content-Length: 280\r\n"
+				"\r\n"
+				"{"
+				"\"serialNumber\":\"99051190\","
+				"\"applicationId\":\"2.16.756.5.25.4.6.2.1\","
+				"\"level\":\"INFO\","
+				//"\"created\":\"2022-09-10T12:34:56.789+01:00\","
+				"\"content\":\"<!DOCTYPE html><html>TEST 3 AUTOTEST PVL</html>\""
+				"}";
+
+		a = MX_WIFI_Socket_send(wifi_obj_get(), sock_fd, (const uint8_t *)post_request, strlen(post_request), 0); // function to send the post request
+
+		/*if (a != MX_WIFI_STATUS_OK){
+			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
+			return POST_REQUEST_SENDING_FAILED;
+		}*/
+
+		// prepare the stuff for the receive function
+		static unsigned char recv_buffer[100]; // create a buffer to stock the response
+		memset((void*)recv_buffer, 0, sizeof(recv_buffer)); // Clear the buffer
+
+		int32_t nb = MX_WIFI_Socket_recv(wifi_obj_get(), sock_fd, (uint8_t *)recv_buffer, 100, 0); // function to receive the response from the server
+
+		if (nb < 0){
+			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
+			return POST_REQUEST_RECEIVING_FAILED;
+		}
 	}
-}
-*/
 
 
+// a 2 nd send request always fail, maybe the socket is broke because of the previous fail request
 
-    while(1){
+   a = MX_WIFI_Socket_close(wifi_obj_get(), sock_fd); // Ajoute la fonction pour fermer le socket
 
-    }
+	if (a != MX_WIFI_STATUS_OK){
+		HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
+		return SOCKET_CLOSING_FAILED;
+	}
 
-    return;
+	HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_7);
+
+    return APP_OK;
 }

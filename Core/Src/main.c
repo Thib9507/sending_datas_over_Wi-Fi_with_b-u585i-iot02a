@@ -133,7 +133,7 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  app_main();
+  int8_t a= app_main();
   while (1)
   {
     /* USER CODE END WHILE */

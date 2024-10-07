@@ -4,6 +4,6 @@
 #include "mx_wifi_io.h"
 #define MXCHIP_SPI hspi2
 
-void app_main( void);
+int8_t app_main( void);
 
 #endif
