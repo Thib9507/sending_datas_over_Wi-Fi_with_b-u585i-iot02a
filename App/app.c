@@ -237,8 +237,9 @@ static int32_t hw_start(/*net_if_handle_t *pnetif */probe *probe_object)
 
 // network info
 
-const mx_char_t *SSID = "xxxx";
-const mx_char_t *Password = "xxxx";
+const mx_char_t *SSID = "xxxx"; // code replace by xxxx (security issue)
+const mx_char_t *Password = "xxxx"; // code replace by xxxx (security issue)
+
 
 Mode currentMode = AUTOTEST; // Choose if you want to send a keepalive, an autotest or nothing
 
@@ -277,7 +278,7 @@ int8_t app_main( void) {
 
     a = MX_WIFI_Connect(wifi_obj_get(), SSID, Password, MX_WIFI_SEC_WPA_AES);
 
-    HAL_Delay(4000); // waiting for 4s to get connected
+    HAL_Delay(5000); // waiting for 5s to get connected
 
 		if (a != MX_WIFI_STATUS_OK){
 			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
@@ -333,7 +334,7 @@ int8_t app_main( void) {
 				"Host: 192.168.20.71:8080\r\n"
 				"Accept: application/json\r\n"
 				"Content-Type: application/json; charset=utf-8\r\n"
-				"Authorization: Basic xxxx\r\n" // info replace by xxxx because of security issues
+				"Authorization: Basic xxxx\r\n" // code replace by xxxx (security issue)
 				"Content-Length: 267\r\n"
 				"\r\n"
 				"{"
@@ -362,7 +363,7 @@ int8_t app_main( void) {
 				HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
 				return POST_REQUEST_RECEIVING_FAILED;
 			}
-		}
+	}
 
 	else if (currentMode == AUTOTEST) {
 		// Post request for AUTOTEST
@@ -371,21 +372,22 @@ int8_t app_main( void) {
 				"Host: 192.168.20.71:8080\r\n"
 				"Accept: application/json\r\n"
 				"Content-Type: application/json; charset=utf-8\r\n"
-				"Authorization: Basic xxxx\r\n"
-				"Content-Length: 280\r\n"
+				"Authorization: Basic xxxx\r\n" // code replace by xxxx (security issue)
+
+				"Content-Length: 404\r\n"
 				"\r\n"
 				"{"
 				"\"serialNumber\":\"99051190\","
 				"\"applicationId\":\"2.16.756.5.25.4.6.2.1\","
 				"\"level\":\"INFO\","
-				"\"created\":\"2024-10-10T10:04:59.789+01:00\","
-				"\"content\":\"<!DOCTYPE html><html>TEST 6 AUTOTEST PVL</html>\""
+				"\"created\":\"2024-10-09T13:14:57.789+01:00\","
+                "\"content\": \"<!DOCTYPE html><html><body><div id=\\\"date-utc1\\\"></div><script>function dateUTC1() {const now = new Date();const utc1 = new Date(now.getTime() );document.getElementById(\\\"date-utc1\\\").innerText = utc1;}dateUTC1();</script></body></html>\"}' "
 				"}";
 
 		a = MX_WIFI_Socket_send(wifi_obj_get(), sock_fd, (const uint8_t *)post_request, strlen(post_request), 0); // function to send the post request
 
 		// prepare the stuff for the receive function
-		static unsigned char recv_buffer[100]; // create a buffer to stock the response
+		static unsigned char recv_buffer[500]; // create a buffer to stock the response
 		memset((void*)recv_buffer, 0, sizeof(recv_buffer)); // Clear the buffer
 
 		int32_t nb = MX_WIFI_Socket_recv(wifi_obj_get(), sock_fd, (uint8_t *)recv_buffer, 100, 0); // function to receive the response from the server
