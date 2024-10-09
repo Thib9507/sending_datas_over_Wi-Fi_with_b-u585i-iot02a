@@ -236,12 +236,12 @@ static int32_t hw_start(/*net_if_handle_t *pnetif */probe *probe_object)
 // Setting of the application
 
 // network info
-const mx_char_t *SSID = "xxxx"; // info replace by xxxx because of security issues
-const mx_char_t *Password = "xxxx"; // info replace by xxxx because of security issues
 
-Mode currentMode = KEEPALIVE; // Choose if you want to send a keepalive, an autotest or nothing
+const mx_char_t *SSID = "xxxx";
+const mx_char_t *Password = "xxxx";
 
-Mode currentMode = KEEPALIVE; // Choose if you want to send a keepalive, an autotest or nothing
+Mode currentMode = AUTOTEST; // Choose if you want to send a keepalive, an autotest or nothing
+
 
 
 int8_t app_main( void) {
@@ -358,124 +358,11 @@ int8_t app_main( void) {
 
 		int32_t nb = MX_WIFI_Socket_recv(wifi_obj_get(), sock_fd, (uint8_t *)recv_buffer, 100, 0); // function to receive the response from the server
 
-#if HTTPFOREVER
-        	const char* post_request =
-        	"POST /SDM/public/v1/devices/alive HTTP/1.1\r\n"
-        	"Host: 37.58.177.187\r\n"
-        	"Accept: application/json\r\n"
-        	"Content-Type: application/json; charset=utf-8\r\n"
-        	"Content-Length: 267\r\n" // of the json
-        	"{\n"
-        	"		\"serialNumber\":\"99051190\",\n"
-        	"		\"applicationId\":\"2.16.756.5.25.4.6.2.1\",\n"
-        	"		\"deviceId\":\"TEST_PVL_TCI\",\n"
-        	"		\"versionId\":\"51104\",\n"
-        	"   	\"hardwareId\":\"0\",\n"
-			"    	\"settingSet\":\"Batman\"\n"
-			"}";
-#else
-
-        	const char* post_request =
-        		    "POST /SDM/public/v1/devices/alive HTTP/1.1\r\n"
-        		    "Host: 192.168.20.71:8080\r\n"
-        		    "Accept: application/json\r\n"
-        		    "Content-Type: application/json; charset=utf-8\r\n"
-        		    "Authorization: Basic xxxx\r\n"
-        		    "Content-Length: 267\r\n"
-        		    "\r\n"
-        		    "{"
-        		    "\"serialNumber\":\"99051190\","
-        		    "\"applicationId\":\"2.16.756.5.25.4.6.2.1\","
-        		    "\"deviceId\":\"TEST_PVL_TCI\","
-        		    "\"versionId\":\"51104\","
-        		    "\"hardwareId\":\"0\","
-        		    "\"settingSet\":\"Batman\""
-        		    "}";
-#endif
-
-            // Envoyer la requête POST
-            a = MX_WIFI_Socket_send(wifi_obj_get(), sock_fd, (const uint8_t *)post_request, strlen(post_request), 0);
-
-            int32_t nb=0;
-
-            static unsigned char recv_buffer1[100];
-            static unsigned char recv_buffer2[100];
-
-            /* Clear receive buffer */
-            memset((void*)recv_buffer1, 0, sizeof(recv_buffer1)); // create a buffer to stock the response
-            memset((void*)recv_buffer2, 0, sizeof(recv_buffer2));
-
-	            nb = MX_WIFI_Socket_recv(wifi_obj_get(), sock_fd, (uint8_t *)recv_buffer, 100, 0); // function to receive the response from the server
-
+			if (nb < 0){
+				HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
+				return POST_REQUEST_RECEIVING_FAILED;
 			}
-
-			else if (currentMode == AUTOTEST) {
-			    // Post request for AUTOTEST
-	        	const char* post_request =
-	        		    "POST /SDM/public/v1/devices/test HTTP/1.1\r\n"
-	        		    "Host: 192.168.20.71:8080\r\n"
-	        		    "Accept: application/json\r\n"
-	        		    "Content-Type: application/json; charset=utf-8\r\n"
-	        		    "Authorization: Basic Mi4xNi43NTYuNS4yNS40LjYuMi4xIzEyNzk5MDUxMTkwOjI5NzExNjM3YWQxY2QwZWE2NDk5MTJhZDBhNDA3OTc5\r\n"
-	        		    "Content-Length: 280\r\n"
-	        		    "\r\n"
-	        		    "{"
-	        		    "\"serialNumber\":\"99051190\","
-	        		    "\"applicationId\":\"2.16.756.5.25.4.6.2.1\","
-	        		    "\"level\":\"INFO\","
-	        		    //"\"created\":\"2022-09-10T12:34:56.789+01:00\","
-	        		    "\"content\":\"<!DOCTYPE html><html>TEST 3 AUTOTEST PVL</html>\""
-	        		    "}";
-
-	            a = MX_WIFI_Socket_send(wifi_obj_get(), sock_fd, (const uint8_t *)post_request, strlen(post_request), 0); // function to send the post request
-
-	            // prepare the stuff for the receive function
-	            int32_t nb = 0; // create a variable to stock the returned value corresponding to the number of Bytes received
-	            static unsigned char recv_buffer[100]; // create a buffer to stock the response
-	            memset((void*)recv_buffer, 0, sizeof(recv_buffer)); // Clear the buffer
-
-	            nb = MX_WIFI_Socket_recv(wifi_obj_get(), sock_fd, (uint8_t *)recv_buffer, 100, 0); // function to receive the response from the server
-			}
-
-
-// fail the 2 nd send request, maybe the socket is broke because of the previous fail request
-
-
-           a = MX_WIFI_Socket_close(wifi_obj_get(), sock_fd); // Ajoute la fonction pour fermer le socket
-
-            if (a == 0) {
-                // Réception de la réponse (ajoute le code pour lire la réponse ici si nécessaire)
-        		HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_7);
-
-            } else {
-            	HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);
-            }
-        }
-        else {
-        	HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);
-        }
-        // Fermer le socket après l'utilisation
-    }
-    else {
-    	HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6); // Gestion d'erreur de création de socket
-    }
-
-
-
-
-
-// code to turn on a led depending on the status of the module (Green for OK, Red for KO)
-    /*
-{
-	if (a==MX_WIFI_STATUS_OK)    {
-		HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_7);
-=======
-		if (nb < 0){
-			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
-			return POST_REQUEST_RECEIVING_FAILED;
 		}
->>>>>>> 746bbd0 ([App][core] Adding error management)
-	}
 
 	else if (currentMode == AUTOTEST) {
 		// Post request for AUTOTEST
@@ -484,23 +371,18 @@ int8_t app_main( void) {
 				"Host: 192.168.20.71:8080\r\n"
 				"Accept: application/json\r\n"
 				"Content-Type: application/json; charset=utf-8\r\n"
-				"Authorization: Basic xxxx\r\n" // info replace by xxxx because of security issues
+				"Authorization: Basic xxxx\r\n"
 				"Content-Length: 280\r\n"
 				"\r\n"
 				"{"
 				"\"serialNumber\":\"99051190\","
 				"\"applicationId\":\"2.16.756.5.25.4.6.2.1\","
 				"\"level\":\"INFO\","
-				//"\"created\":\"2022-09-10T12:34:56.789+01:00\","
-				"\"content\":\"<!DOCTYPE html><html>TEST 3 AUTOTEST PVL</html>\""
+				"\"created\":\"2024-10-10T10:04:59.789+01:00\","
+				"\"content\":\"<!DOCTYPE html><html>TEST 6 AUTOTEST PVL</html>\""
 				"}";
 
 		a = MX_WIFI_Socket_send(wifi_obj_get(), sock_fd, (const uint8_t *)post_request, strlen(post_request), 0); // function to send the post request
-
-		/*if (a != MX_WIFI_STATUS_OK){
-			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
-			return POST_REQUEST_SENDING_FAILED;
-		}*/
 
 		// prepare the stuff for the receive function
 		static unsigned char recv_buffer[100]; // create a buffer to stock the response
@@ -508,10 +390,10 @@ int8_t app_main( void) {
 
 		int32_t nb = MX_WIFI_Socket_recv(wifi_obj_get(), sock_fd, (uint8_t *)recv_buffer, 100, 0); // function to receive the response from the server
 
-		if (nb < 0){
-			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
-			return POST_REQUEST_RECEIVING_FAILED;
-		}
+			if (nb < 0){
+				HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
+				return POST_REQUEST_RECEIVING_FAILED;
+			}
 	}
 
 
