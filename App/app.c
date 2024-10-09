@@ -234,7 +234,6 @@ int8_t app_main( void) {
 		int32_t ret_hw_start = hw_start(&probe_object); // initialization of the SPI and the module
 
 			if (ret_hw_start < 0){
-				HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
 				return POST_REQUEST_RECEIVING_FAILED;
 			}
     }
@@ -249,7 +248,6 @@ int8_t app_main( void) {
     HAL_Delay(5000); // waiting for 5s to get connected correctly
 
 		if (a != MX_WIFI_STATUS_OK){
-			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
 			return WIFI_CONNECTION_FAILED ;
 		}
 
@@ -258,14 +256,12 @@ int8_t app_main( void) {
     a = MX_WIFI_GetIPAddress(wifi_obj_get(),&module_IP[0],MC_STATION);
 
 		if (a != MX_WIFI_STATUS_OK){
-			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
 			return IP_REQUEST_FAILED;
 		}
 
     int32_t sock_fd = MX_WIFI_Socket_create(wifi_obj_get(), MX_AF_INET, MX_SOCK_STREAM, NET_IPPROTO_TCP); // create a socket with some parameters to use TCP protocol
 
 		if (sock_fd < 0){
-			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
 			return SOCKET_CREATION_FAILED ;
 		}
 
@@ -291,7 +287,6 @@ int8_t app_main( void) {
 	a = MX_WIFI_Socket_connect(wifi_obj_get(), sock_fd, (const struct mx_sockaddr *)server_addr, (int32_t)sizeof(struct mx_sockaddr_in));
 
 		if (a != MX_WIFI_STATUS_OK){
-			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
 			return SOCKET_CONNECTION_FAILED;
 		}
 
@@ -323,7 +318,6 @@ int8_t app_main( void) {
 		int32_t nb = MX_WIFI_Socket_recv(wifi_obj_get(), sock_fd, (uint8_t *)recv_buffer, 100, 0); // function to receive the response from the server
 
 			if (nb < 0){
-				HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
 				return POST_REQUEST_RECEIVING_FAILED;
 			}
 	}
@@ -356,7 +350,6 @@ int8_t app_main( void) {
 		int32_t nb = MX_WIFI_Socket_recv(wifi_obj_get(), sock_fd, (uint8_t *)recv_buffer, 100, 0); // function to receive the response from the server
 
 			if (nb < 0){
-				HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
 				return POST_REQUEST_RECEIVING_FAILED;
 			}
 	}
@@ -367,11 +360,9 @@ int8_t app_main( void) {
    a = MX_WIFI_Socket_close(wifi_obj_get(), sock_fd); // Ajoute la fonction pour fermer le socket
 
 	if (a != MX_WIFI_STATUS_OK){
-		HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
 		return SOCKET_CLOSING_FAILED;
 	}
 
-	HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_7);
 
     return APP_OK;
 }

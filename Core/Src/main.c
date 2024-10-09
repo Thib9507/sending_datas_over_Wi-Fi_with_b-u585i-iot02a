@@ -133,7 +133,14 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  int8_t a= app_main();
+  int8_t app_status=app_main();
+
+  if(app_status==0){
+	  HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_7); // if success --> turn on the green LED
+  }
+  else {
+	  HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6); // if an error occurred --> turn on the red LED
+  }
   while (1)
   {
     /* USER CODE END WHILE */
