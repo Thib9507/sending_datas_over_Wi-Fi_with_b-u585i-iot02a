@@ -7,7 +7,6 @@
 #include <string.h>
 
 // define the wifi module secondaries pins (not the spi pins)
-
 #define MXCHIP_SPI              Wifi_SPIHandle
 #define MXCHIP_FLOW_Pin         GPIO_PIN_15
 #define MXCHIP_FLOW_GPIO_Port   GPIOG
@@ -139,8 +138,6 @@ void HAL_GPIO_EXTI_Rising_Callback(uint16_t GPIO_Pin)
 }
 
 typedef char            char_t;
-/* IPV4 address, with 8 stuffing bytes. */
-
 
 //empty structure to feed mxwifi_probe function in hw_start
 typedef struct
@@ -149,14 +146,14 @@ typedef struct
 }probe;
 
 
-typedef enum {
+typedef enum { // Structure to indicate the json to send
     AUTOTEST = 0,
 	KEEPALIVE = 1,
 	NOTHING = 2
 } Mode;
 
 
-typedef enum {
+typedef enum { // structure to indicate the app status
     APP_OK = 0,
 	HW_START_FAILED = -1,
 	WIFI_CONNECTION_FAILED = -2,
@@ -166,7 +163,7 @@ typedef enum {
 	POST_REQUEST_SENDING_FAILED =-6,
 	POST_REQUEST_RECEIVING_FAILED=-7,
 	SOCKET_CLOSING_FAILED=-8
-} Error;
+} App_status;
 
 
 // function hw_start adapted from the initial project (consider the structure above)
@@ -174,7 +171,7 @@ static int32_t hw_start(/*net_if_handle_t *pnetif */probe *probe_object)
 {
   int32_t ret = /*NET_ERROR_DEVICE_ERROR*/-13;
 
-  if (mxwifi_probe(/*&pnetif->pdrv->context = 0 ?*/ &probe_object->probe_attribute) == 0) // function to indicate witch function should be use for the SPI
+  if (mxwifi_probe(&probe_object->probe_attribute) == 0) // function to indicate witch function should be use for the SPI
   {
     DEBUG_LOG("%s\n", "MX_WIFI IO [OK]");
 
@@ -195,8 +192,6 @@ static int32_t hw_start(/*net_if_handle_t *pnetif */probe *probe_object)
     }
     else
     {
-      /* Wait for Mxchip WiFi reboot. */
-
       /* Initialize the WiFi module. */
       if (MX_WIFI_STATUS_OK != MX_WIFI_Init(wifi_obj_get())) // function to init the WiFi module communication and to verify it with 2 requests : ask version and ask MAC adress
       {
@@ -204,28 +199,7 @@ static int32_t hw_start(/*net_if_handle_t *pnetif */probe *probe_object)
       }
       else
       {
-        /*DEBUG_LOG("%s\n", "MX_WIFI_Init [OK]");
-         //Retrieve the WiFi module information.
-        (void)strncpy(pnetif->DeviceName, (const char *)wifi_obj_get()->SysInfo.Product_Name, sizeof(pnetif->DeviceName));
-        (void)strncpy(pnetif->DeviceID, (const char *)wifi_obj_get()->SysInfo.Product_ID, sizeof(pnetif->DeviceID));
-        (void)strncpy(pnetif->DeviceVer, (const char *)wifi_obj_get()->SysInfo.FW_Rev, sizeof(pnetif->DeviceVer));
-*/
-        //(void)MX_WIFI_GetMACAddress(wifi_obj_get(), pnetif->macaddr.mac);
-
-        /* Set bypass mode. */
-    	  /*
-#if (defined(MX_WIFI_NETWORK_BYPASS_MODE) && (MX_WIFI_NETWORK_BYPASS_MODE == 1))
-        if (MX_WIFI_STATUS_OK != MX_WIFI_Network_bypass_mode_set(wifi_obj_get(), 1,
-                                                                 net_mx_wifi_netlink_input_callback, pnetif))
-        {
-          NET_DBG_ERROR("*** set mx_wifi module bypass mode failed!\n");
-          ret = NET_ERROR_MODULE_INITIALIZATION;
-        }
-        else
-#endif  (MX_WIFI_NETWORK_BYPASS_MODE == 1) */
-        {
           ret = /*NET_OK*/0;
-        }
       }
     }
   }
@@ -236,12 +210,11 @@ static int32_t hw_start(/*net_if_handle_t *pnetif */probe *probe_object)
 // Setting of the application
 
 // network info
-
 const mx_char_t *SSID = "xxxx"; // code replace by xxxx (security issue)
 const mx_char_t *Password = "xxxx"; // code replace by xxxx (security issue)
 
 
-Mode currentMode = AUTOTEST; // Choose if you want to send a keepalive, an autotest or nothing
+Mode currentMode = KEEPALIVE; // Choose if you want to send a keepalive, an autotest or nothing
 
 
 
@@ -251,11 +224,8 @@ int8_t app_main( void) {
 
     MX_WIFI_STATUS_T a;  // declare a variable to stock the state of the module
 
+    Wifi_IO_Init(); // initialization of the wifi module secondaries pins (not the spi pins)
 
-    // configuration and initialization of the wifi module
-    {
-    	Wifi_IO_Init(); // initialization of the wifi module secondaries pins (not the spi pins)
-    }
 
     // initialization of the module request
     {
@@ -268,9 +238,7 @@ int8_t app_main( void) {
 				return POST_REQUEST_RECEIVING_FAILED;
 			}
     }
-/////////////////////////////////////////////////////////////////////////////////////////////
-//////  list of commands send to the module (a is the status of the module : 0 is OK  ///////
-/////////////////////////////////////////////////////////////////////////////////////////////
+
 
     a = MX_WIFI_Scan(wifi_obj_get(), 0, NULL,0); // scan is mandatory before connecting request to connect correctly
 
@@ -278,7 +246,7 @@ int8_t app_main( void) {
 
     a = MX_WIFI_Connect(wifi_obj_get(), SSID, Password, MX_WIFI_SEC_WPA_AES);
 
-    HAL_Delay(5000); // waiting for 5s to get connected
+    HAL_Delay(5000); // waiting for 5s to get connected correctly
 
 		if (a != MX_WIFI_STATUS_OK){
 			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
@@ -348,11 +316,6 @@ int8_t app_main( void) {
 
 		a = MX_WIFI_Socket_send(wifi_obj_get(), sock_fd, (const uint8_t *)post_request, strlen(post_request), 0); // function to send the post request
 
-		/*if (a != MX_WIFI_STATUS_OK){
-			HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6);				// if an error occurred --> turn on the red LED and return a specific error code
-			return POST_REQUEST_SENDING_FAILED;
-		}*/
-
 		// prepare the stuff for the receive function
 		static unsigned char recv_buffer[100]; // create a buffer to stock the response
 		memset((void*)recv_buffer, 0, sizeof(recv_buffer)); // Clear the buffer
@@ -380,7 +343,7 @@ int8_t app_main( void) {
 				"\"serialNumber\":\"99051190\","
 				"\"applicationId\":\"2.16.756.5.25.4.6.2.1\","
 				"\"level\":\"INFO\","
-				"\"created\":\"2024-10-09T13:14:57.789+01:00\","
+				"\"created\":\"2024-10-09T15:14:57.789+01:00\","
                 "\"content\": \"<!DOCTYPE html><html><body><div id=\\\"date-utc1\\\"></div><script>function dateUTC1() {const now = new Date();const utc1 = new Date(now.getTime() );document.getElementById(\\\"date-utc1\\\").innerText = utc1;}dateUTC1();</script></body></html>\"}' "
 				"}";
 
