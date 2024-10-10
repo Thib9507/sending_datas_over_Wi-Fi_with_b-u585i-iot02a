@@ -1,12 +1,17 @@
 #include "app.h"
 
-
-// network info
-const mx_char_t *SSID = "xxxx"; // code replace by xxxx (security issue)
-const mx_char_t *Password = "xxxx"; // code replace by xxxx (security issue)
-
-Mode currentMode = AUTOTEST; // Choose if you want to send a keepalive, an autotest or nothing
-
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+///////////     APP SETTINGS (SHOULD BE UPDATE)    /////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+																															////
+// network info																												////
+const mx_char_t *SSID = "xxxx"; // replaced by xxxx (security issue) : fill in the SSID of your network						////
+const mx_char_t *Password = "xxxx"; // replaced by xxxx (security issue) : fill in the password of your network				////
+																															////
+Mode currentMode = AUTOTEST; // Choose if you want to send a keepalive, an autotest or nothing								////
+																															////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 int8_t app_main( void) {
     /* Initialize bsp resources */
@@ -43,16 +48,16 @@ int8_t app_main( void) {
 	struct mx_sockaddr *server_addr = (struct mx_sockaddr*) malloc(sizeof(struct mx_sockaddr));
 	server_addr->sa_family = MX_AF_INET;
 	server_addr->sa_len=16; // Number of bytes of the structure
-		server_addr->sa_data[0] = 0x1F;          // port of our application : 8080 (in hexadecimal on 2 Bytes)
+		server_addr->sa_data[0] = 0x1F;          // port of our application : 8080 (in hexadecimal on 2 Bytes) : sa_data[0] and sa_data[1]
 		server_addr->sa_data[1] = 0x90;
 		server_addr->sa_data[2] = 192;
-		server_addr->sa_data[3] = 168;           // IP of our server
+		server_addr->sa_data[3] = 168;           // IP of our server : each sa_data between sa_data[2] and sa_data[5] is a member (a Byte) of your IP address
 		server_addr->sa_data[4] = 20;
 		server_addr->sa_data[5] = 71;
 		server_addr->sa_data[6] = 0;
 		server_addr->sa_data[7] = 0;
 		server_addr->sa_data[8] = 0;
-		server_addr->sa_data[9] = 0;          // following element = 0
+		server_addr->sa_data[9] = 0;          // the rest of sa_data (sa_data[6] to sa_data[13]) need to be set at 0
 		server_addr->sa_data[10] = 0;
 		server_addr->sa_data[11] = 0;
 		server_addr->sa_data[12] = 0;
@@ -72,7 +77,7 @@ int8_t app_main( void) {
 				"Host: 192.168.20.71:8080\r\n"
 				"Accept: application/json\r\n"
 				"Content-Type: application/json; charset=utf-8\r\n"
-				"Authorization: Basic xxxx\r\n" // code replace by xxxx (security issue)
+				"Authorization: Basic xxxx\r\n" // !!!!!!!!!!!!!!!! code replace by xxxx (security issue) : fill in your identification code
 				"Content-Length: 267\r\n"
 				"\r\n"
 				"{"
@@ -104,7 +109,7 @@ int8_t app_main( void) {
 				"Host: 192.168.20.71:8080\r\n"
 				"Accept: application/json\r\n"
 				"Content-Type: application/json; charset=utf-8\r\n"
-				"Authorization: Basic xxxx\r\n" // code replace by xxxx (security issue)
+				"Authorization: Basic xxxx\r\n" // !!!!!!!!!!!!!!!! code replace by xxxx (security issue) : fill in your identification code
 
 				"Content-Length: 404\r\n"
 				"\r\n"
