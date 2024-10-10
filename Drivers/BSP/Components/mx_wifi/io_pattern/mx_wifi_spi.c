@@ -29,7 +29,7 @@
 #include "mx_wifi_conf.h" /* Get some platform definitions. */
 #include "mx_wifi_io.h"
 #include "core/mx_wifi_hci.h"
-#include "app.h"
+#include "app_init.h" // need it to precise SPI
 
 #if defined(MX_WIFI_USE_SPI) && (MX_WIFI_USE_SPI == 1)
 
@@ -37,7 +37,7 @@
 #define DEBUG_LOG(...)       (void)printf(__VA_ARGS__) /*;*/
 #define DEBUG_WARNING(...)   (void)printf(__VA_ARGS__) /*;*/
 #else
-#define DEBUG_LOG(...)
+//#define DEBUG_LOG(...) defined in app_init.h
 #define DEBUG_WARNING(...)
 #endif /* MX_WIFI_IO_DEBUG */
 

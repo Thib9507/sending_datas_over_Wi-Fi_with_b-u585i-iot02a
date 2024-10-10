@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "app.h"
+#include "app_init.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -133,7 +134,10 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  int8_t app_status=app_main();
+
+  int8_t init_status=module_init(); // initialization of the module
+
+  int8_t app_status=app_main(); // launching the application
 
   if(app_status==0){
 	  HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_7); // if success --> turn on the green LED

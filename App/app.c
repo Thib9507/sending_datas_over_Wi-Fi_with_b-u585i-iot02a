@@ -1,243 +1,22 @@
-#include "bsp.h"
-#include "mx_wifi.h"
-#include "mx_wifi_io.h"
-#include "mx_address.h"
-
-#include <stdio.h>
-#include <string.h>
-
-// define the wifi module secondaries pins (not the spi pins)
-#define MXCHIP_SPI              Wifi_SPIHandle
-#define MXCHIP_FLOW_Pin         GPIO_PIN_15
-#define MXCHIP_FLOW_GPIO_Port   GPIOG
-#define MXCHIP_FLOW_EXTI_IRQn   EXTI15_IRQn
-#define MXCHIP_RESET_Pin        GPIO_PIN_15
-#define MXCHIP_RESET_GPIO_Port  GPIOF
-#define MXCHIP_NSS_Pin          GPIO_PIN_12
-#define MXCHIP_NSS_GPIO_Port    GPIOB
-#define MXCHIP_NOTIFY_Pin       GPIO_PIN_14
-#define MXCHIP_NOTIFY_GPIO_Port GPIOD
-#define MXCHIP_NOTIFY_EXTI_IRQn EXTI14_IRQn
+#include "app.h"
 
 
-#define NET_IPPROTO_TCP         6
 
 
-#ifdef MX_WIFI_API_DEBUG
-#define DEBUG_LOG(M, ...)  printf((M), ##__VA_ARGS__) /*;*/
-#else
-#define DEBUG_LOG(M, ...)  /*;*/
-#endif /* MX_WIFI_API_DEBUG */
-
-/**
-  * @brief This function handles EXTI Line13 interrupt. (Notify_pin of spi) need it to change the state and to speak to/ listen from the module
-  */
-void EXTI14_IRQHandler(void)
-{
-  HAL_GPIO_EXTI_IRQHandler(MXCHIP_NOTIFY_Pin);
-}
-
-/**
-  * @brief This function handles EXTI Line15 interrupt. (flow pin of spi) need it to change the state and to speak to/ listen from the module
-  */
-void EXTI15_IRQHandler(void)
-{
-  HAL_GPIO_EXTI_IRQHandler(MXCHIP_FLOW_Pin);
-}
-
-/**
-  * @brief GPIO Initialization Function
-  * @param None
-  * @retval None
-  */
-static void Wifi_IO_Init(void)
-{
-  GPIO_InitTypeDef GPIO_InitStruct = {0};
-
-  /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOG_CLK_ENABLE();
-  __HAL_RCC_GPIOC_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOF_CLK_ENABLE();
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(MXCHIP_RESET_GPIO_Port, MXCHIP_RESET_Pin, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_14, GPIO_PIN_RESET);
-
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(MXCHIP_NSS_GPIO_Port, MXCHIP_NSS_Pin, GPIO_PIN_SET);
-
-  /*Configure GPIO pin : MXCHIP_FLOW_Pin */
-  GPIO_InitStruct.Pin = MXCHIP_FLOW_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(MXCHIP_FLOW_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : MXCHIP_RESET_Pin */
-  GPIO_InitStruct.Pin = MXCHIP_RESET_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(MXCHIP_RESET_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PD14 */
-  GPIO_InitStruct.Pin = GPIO_PIN_14;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : MXCHIP_NSS_Pin */
-  GPIO_InitStruct.Pin = MXCHIP_NSS_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(MXCHIP_NSS_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : MXCHIP_NOTIFY_Pin */
-  GPIO_InitStruct.Pin = MXCHIP_NOTIFY_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(MXCHIP_NOTIFY_GPIO_Port, &GPIO_InitStruct);
-
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI14_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(EXTI14_IRQn);
-
-  HAL_NVIC_SetPriority(EXTI15_IRQn, 5, 0);
-  HAL_NVIC_EnableIRQ(EXTI15_IRQn);
-}
-
-void HAL_GPIO_EXTI_Rising_Callback(uint16_t GPIO_Pin)
-{
-  switch (GPIO_Pin)
-  {
-    /* MXCHIP flow pin notification */
-    case MXCHIP_FLOW_Pin:
-    {
-      mxchip_WIFI_ISR(MXCHIP_FLOW_Pin);
-      break;
-    }
-
-    /* MXCHIP notify pin notification */
-    case (MXCHIP_NOTIFY_Pin):
-    {
-      mxchip_WIFI_ISR(MXCHIP_NOTIFY_Pin);
-      break;
-    }
-
-  default:
-    {
-      break;
-    }
-  }
-}
-
-typedef char            char_t;
-
-//empty structure to feed mxwifi_probe function in hw_start
-typedef struct
-{
-	void *probe_attribute;
-}probe;
-
-
-typedef enum { // Structure to indicate the json to send
-    AUTOTEST = 0,
-	KEEPALIVE = 1,
-	NOTHING = 2
-} Mode;
-
-
-typedef enum { // structure to indicate the app status
-    APP_OK = 0,
-	HW_START_FAILED = -1,
-	WIFI_CONNECTION_FAILED = -2,
-	IP_REQUEST_FAILED = -3,
-	SOCKET_CREATION_FAILED = -4,
-	SOCKET_CONNECTION_FAILED = -5,
-	POST_REQUEST_SENDING_FAILED =-6,
-	POST_REQUEST_RECEIVING_FAILED=-7,
-	SOCKET_CLOSING_FAILED=-8
-} App_status;
-
-
-// function hw_start adapted from the initial project (consider the structure above)
-static int32_t hw_start(/*net_if_handle_t *pnetif */probe *probe_object)
-{
-  int32_t ret = /*NET_ERROR_DEVICE_ERROR*/-13;
-
-  if (mxwifi_probe(&probe_object->probe_attribute) == 0) // function to indicate witch function should be use for the SPI
-  {
-    DEBUG_LOG("%s\n", "MX_WIFI IO [OK]");
-
-    if (wifi_obj_get()->Runtime.interfaces == 0U)
-    {
-       // WiFi module hardware reboot.
-      DEBUG_LOG("%s\n", "MX_WIFI REBOOT(HW) ...");
-      ret = MX_WIFI_HardResetModule(wifi_obj_get());         // Not an error, it is mandatory for the init
-    }
-    else
-    {
-      ret = MX_WIFI_STATUS_OK;
-    }
-
-    if (MX_WIFI_STATUS_OK != ret)
-    {
-      ret = /*NET_ERROR_DEVICE_ERROR*/-13;
-    }
-    else
-    {
-      /* Initialize the WiFi module. */
-      if (MX_WIFI_STATUS_OK != MX_WIFI_Init(wifi_obj_get())) // function to init the WiFi module communication and to verify it with 2 requests : ask version and ask MAC adress
-      {
-        ret = /*NET_ERROR_INTERFACE_FAILURE*/-17;
-      }
-      else
-      {
-          ret = /*NET_OK*/0;
-      }
-    }
-  }
-    return ret;
-}
-
-
-// Setting of the application
 
 // network info
 const mx_char_t *SSID = "xxxx"; // code replace by xxxx (security issue)
 const mx_char_t *Password = "xxxx"; // code replace by xxxx (security issue)
 
-
-Mode currentMode = KEEPALIVE; // Choose if you want to send a keepalive, an autotest or nothing
+Mode currentMode = AUTOTEST; // Choose if you want to send a keepalive, an autotest or nothing
 
 
 
 int8_t app_main( void) {
     /* Initialize bsp resources */
-    bsp_init();
+
 
     MX_WIFI_STATUS_T a;  // declare a variable to stock the state of the module
-
-    Wifi_IO_Init(); // initialization of the wifi module secondaries pins (not the spi pins)
-
-
-    // initialization of the module request
-    {
-		probe probe_object; // ~ pnetif to feed hw_start
-
-		int32_t ret_hw_start = hw_start(&probe_object); // initialization of the SPI and the module
-
-			if (ret_hw_start < 0){
-				return POST_REQUEST_RECEIVING_FAILED;
-			}
-    }
-
 
     a = MX_WIFI_Scan(wifi_obj_get(), 0, NULL,0); // scan is mandatory before connecting request to connect correctly
 
@@ -337,7 +116,7 @@ int8_t app_main( void) {
 				"\"serialNumber\":\"99051190\","
 				"\"applicationId\":\"2.16.756.5.25.4.6.2.1\","
 				"\"level\":\"INFO\","
-				"\"created\":\"2024-10-09T15:14:57.789+01:00\","
+				"\"created\":\"2024-10-10T09:14:57.789+02:00\","
                 "\"content\": \"<!DOCTYPE html><html><body><div id=\\\"date-utc1\\\"></div><script>function dateUTC1() {const now = new Date();const utc1 = new Date(now.getTime() );document.getElementById(\\\"date-utc1\\\").innerText = utc1;}dateUTC1();</script></body></html>\"}' "
 				"}";
 
@@ -354,15 +133,11 @@ int8_t app_main( void) {
 			}
 	}
 
-
-// a 2 nd send request always fail, maybe the socket is broke because of the previous fail request
-
    a = MX_WIFI_Socket_close(wifi_obj_get(), sock_fd); // Ajoute la fonction pour fermer le socket
 
 	if (a != MX_WIFI_STATUS_OK){
 		return SOCKET_CLOSING_FAILED;
 	}
-
 
     return APP_OK;
 }
