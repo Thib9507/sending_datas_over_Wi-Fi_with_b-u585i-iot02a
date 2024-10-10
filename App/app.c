@@ -1,15 +1,11 @@
 #include "app.h"
 
 
-
-
-
 // network info
 const mx_char_t *SSID = "xxxx"; // code replace by xxxx (security issue)
 const mx_char_t *Password = "xxxx"; // code replace by xxxx (security issue)
 
 Mode currentMode = AUTOTEST; // Choose if you want to send a keepalive, an autotest or nothing
-
 
 
 int8_t app_main( void) {
@@ -116,7 +112,7 @@ int8_t app_main( void) {
 				"\"serialNumber\":\"99051190\","
 				"\"applicationId\":\"2.16.756.5.25.4.6.2.1\","
 				"\"level\":\"INFO\","
-				"\"created\":\"2024-10-10T09:14:57.789+02:00\","
+				"\"created\":\"2024-10-10T10:19:57.789+02:00\","
                 "\"content\": \"<!DOCTYPE html><html><body><div id=\\\"date-utc1\\\"></div><script>function dateUTC1() {const now = new Date();const utc1 = new Date(now.getTime() );document.getElementById(\\\"date-utc1\\\").innerText = utc1;}dateUTC1();</script></body></html>\"}' "
 				"}";
 

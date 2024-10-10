@@ -12,8 +12,6 @@
 #include <string.h>
 
 
-
-
 typedef char            char_t;
 
 

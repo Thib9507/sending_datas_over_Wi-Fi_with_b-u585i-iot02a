@@ -137,14 +137,17 @@ int main(void)
 
   int8_t init_status=module_init(); // initialization of the module
 
-  int8_t app_status=app_main(); // launching the application
+  if(init_status==0){
+	  int8_t app_status=app_main(); // launching the application
 
-  if(app_status==0){
-	  HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_7); // if success --> turn on the green LED
+	  if(app_status==0){
+		  HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_7); // if success --> turn on the green LED
+	  }
+	  else {
+		  HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6); // if an error occurred --> turn on the red LED
+	  }
   }
-  else {
-	  HAL_GPIO_TogglePin(GPIOH, GPIO_PIN_6); // if an error occurred --> turn on the red LED
-  }
+
   while (1)
   {
     /* USER CODE END WHILE */
