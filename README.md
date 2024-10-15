@@ -22,7 +22,7 @@ To import this project on your own b-u585i-iot02a, you need to:
 
 ## Project Workflow:
 
-![Project Workflow](https://github.com/user-attachments/assets/81ef0b1a-d9d0-4b42-b8ec-7f272b87062f)
+![image](https://github.com/user-attachments/assets/75df9e6e-5d0e-4a41-8eac-63ca6ae684ba)
 
 
 ## Prerequisites for Execution:
